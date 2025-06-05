@@ -1,4 +1,8 @@
-import { INotebookTracker, NotebookPanel } from '@jupyterlab/notebook';
+import {
+  INotebookTracker,
+  NotebookActions,
+  NotebookPanel
+} from '@jupyterlab/notebook';
 import { ServiceManager, Session } from '@jupyterlab/services';
 import { IKernelSpecs } from '@jupyterlite/kernel';
 import { ISignal, Signal } from '@lumino/signaling';
@@ -104,11 +108,24 @@ export class KernelPromoter {
       // Force a refresh of the running sessions to clean up the UI
       await this._serviceManager.sessions.refreshRunning();
 
-      // Show a success message
+      const currentNotebook = this._notebookTracker.currentWidget;
+
+      // Show a success message with option to restart and run all cells
       void showDialog({
         title: 'Kernel Promoted',
-        body: `Successfully promoted kernel '${kernelName}' from in-browser to server.`,
-        buttons: [Dialog.okButton()]
+        body: `Successfully promoted kernel '${kernelName}' from in-browser to server. Would you like to restart the kernel and run all cells?`,
+        buttons: [
+          Dialog.cancelButton(),
+          Dialog.createButton({
+            label: 'Restart and Run All',
+            caption: 'Restart the kernel and run all cells'
+          })
+        ]
+      }).then(async result => {
+        if (result.button.label === 'Restart and Run All' && currentNotebook) {
+          await sessionContext.restartKernel();
+          await NotebookActions.runAll(currentNotebook.content, sessionContext);
+        }
       });
 
       return true;
